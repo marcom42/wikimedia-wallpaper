@@ -1,0 +1,86 @@
+#!/usr/bin/env python3
+
+import os
+import argparse
+import requests
+from bs4 import BeautifulSoup
+from slugify import slugify
+
+BASE_URL = "https://commons.wikimedia.org"
+URL = BASE_URL + "/wiki/Main_Page"
+
+
+user = os.getenv('USER')
+LOCAL_IMG_DIR='/home/'+user+'/Pictures/wiki-wallpapers/'
+
+if not os.path.exists(LOCAL_IMG_DIR):
+    os.makedirs(LOCAL_IMG_DIR)
+
+parser = argparse.ArgumentParser(
+                    prog='wikimedia-wallpaper',
+                    description='Set the "Wikimedia Commons Image of the Day" picture as your wallpaper')
+
+parser.add_argument('-s', '--save', action='store_true', help="Saves the current wallpaper to a file (wizard).")
+parser.add_argument('-p', '--preview', action='store_true', help="Preview the image of the day.")
+parser.add_argument('-c', '--custom', action='store_true', help="Sets a custom image from your wiki-wallpapers folder (" + LOCAL_IMG_DIR + ") as wallpaper.")
+
+
+def get_url_from_wikimedia(url = URL, div_id = "mainpage-potd"):
+    response = requests.get(url)
+    html = response.content
+    soup = BeautifulSoup(html, 'html.parser')
+    main_div = soup.find(id=div_id)
+    attrs = main_div.find("a").attrs
+    return attrs['href']
+
+def get_image():
+    # Get the image page from the homepage
+    img_url = get_url_from_wikimedia()
+    img_url = BASE_URL + img_url.split(' ')[0]
+
+    # Get the image file url from the image page
+    return get_url_from_wikimedia(img_url, "file")
+
+def download_image(image_url, dest_filename = "current_wallpaper.jpg"):
+    img_path = LOCAL_IMG_DIR + dest_filename
+    headers = {'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0'}
+    response = requests.get(image_url, stream=True, headers=headers)
+    with open(img_path, 'wb') as file:
+        for chunk in response.iter_content(chunk_size=8192):
+            file.write(chunk)
+    return img_path
+
+
+def set_wallpaper(image_path = LOCAL_IMG_DIR + '/current_wallpaper.jpg'):
+    os.system("feh --bg-scale "+image_path)
+
+def save_current_wallpaper():
+    description = input("Describe the image using just a couple of words: ")
+    file_name = slugify(description) + '.jpg'
+    img_to_cpy = LOCAL_IMG_DIR + "current_wallpaper.jpg"
+    img_dest = LOCAL_IMG_DIR + file_name
+    if os.path.exists(img_to_cpy):
+        os.popen(f"cp {img_to_cpy} {img_dest}")
+        print("Image copied to: " + img_dest)
+    else:
+        print("Sorry but I couldn't find the current wallpaper in: " + img_to_cpy)
+        print("Please, try setting a wallpaper first without using any arguments.")
+
+def preview():
+    image = get_image()
+    image_path = download_image(image, "preview.jpg")
+    os.system("feh " + image_path)
+
+if __name__ == "__main__":
+    args = parser.parse_args()
+    if args.save:
+        save_current_wallpaper()
+    elif args.preview:
+        preview()
+    elif args.custom:
+        file_name = input("Type the exact file name of the picture you'd like to set as wallpaper: ")
+        set_wallpaper(LOCAL_IMG_DIR + "/" + file_name)
+    else:
+        image = get_image()
+        image_path = download_image(image)
+        set_wallpaper(image_path)
