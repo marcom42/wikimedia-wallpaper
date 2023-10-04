@@ -52,7 +52,7 @@ def download_image(image_url, dest_filename = "current_wallpaper.jpg"):
 
 
 def set_wallpaper(image_path = LOCAL_IMG_DIR + '/current_wallpaper.jpg'):
-    os.system("feh --bg-scale "+image_path)
+    os.system("feh --bg-fill "+image_path)
 
 def save_current_wallpaper():
     description = input("Describe the image using just a couple of words: ")
